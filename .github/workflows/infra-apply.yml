@@ -27,8 +27,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    # Same commit, same stack, one environment after the other. A failure in dev stops the
-    # rollout before it reaches prod.
+    # Same commit, same stack, one environment after the other. A failure stops the rollout
+    # before it reaches the next environment.
     strategy:
       fail-fast: true
       max-parallel: 1
@@ -36,7 +36,11 @@ jobs:
         include:
           - environment: dev
             stack: 10-platform
-          - environment: prod
+          - environment: tst
+            stack: 10-platform
+          - environment: stg
+            stack: 10-platform
+          - environment: prd
             stack: 10-platform
     defaults:
       run:

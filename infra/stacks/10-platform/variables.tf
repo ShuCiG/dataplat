@@ -10,7 +10,7 @@ variable "environment" {
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9]{1,9}$", var.environment))
-    error_message = "Use a short lowercase name such as dev or prod."
+    error_message = "Use a short lowercase name such as dev or prd."
   }
 }
 
@@ -18,6 +18,11 @@ variable "region" {
   description = "AWS region."
   type        = string
   default     = "eu-central-1"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block of the environment VPC. Kept distinct per environment so they can be peered later."
+  type        = string
 }
 
 variable "allow_data_loss" {

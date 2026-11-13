@@ -35,10 +35,18 @@ jobs:
             directory: infra/stacks/10-platform
             state_key: dev/10-platform/terraform.tfstate
             var_file: ../../envs/dev.tfvars
-          - name: prod / 10-platform
+          - name: tst / 10-platform
             directory: infra/stacks/10-platform
-            state_key: prod/10-platform/terraform.tfstate
-            var_file: ../../envs/prod.tfvars
+            state_key: tst/10-platform/terraform.tfstate
+            var_file: ../../envs/tst.tfvars
+          - name: stg / 10-platform
+            directory: infra/stacks/10-platform
+            state_key: stg/10-platform/terraform.tfstate
+            var_file: ../../envs/stg.tfvars
+          - name: prd / 10-platform
+            directory: infra/stacks/10-platform
+            state_key: prd/10-platform/terraform.tfstate
+            var_file: ../../envs/prd.tfvars
     defaults:
       run:
         working-directory: ${{ matrix.directory }}

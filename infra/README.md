@@ -12,17 +12,29 @@ Terraform for AWS and Snowflake.
 
 ## One stack, many environments
 
-There is no per-environment copy of the code. `dev` and `prod` are the same stack applied with a
+There is no per-environment copy of the code. Every environment is the same stack applied with a
 different variable file and a different state key:
 
 ```
 stacks/10-platform  +  envs/dev.tfvars   ->  state key dev/10-platform/terraform.tfstate
-stacks/10-platform  +  envs/prod.tfvars  ->  state key prod/10-platform/terraform.tfstate
+stacks/10-platform  +  envs/prd.tfvars  ->  state key prd/10-platform/terraform.tfstate
 ```
 
-A change to a stack or a module therefore reaches every environment: CI applies it to `dev` first
-and to `prod` right after, from the same commit. Anything that should differ between environments
+A change to a stack or a module therefore reaches every environment: CI rolls the same commit
+through `dev`, `tst`, `stg` and `prd` in that order and stops at the first failure. Anything that should differ between environments
 has to be a variable and show up in `envs/`, which keeps the differences few and visible.
+
+## Environments
+
+| Name | Purpose |
+|---|---|
+| `dev` | Where changes land first. Disposable. |
+| `tst` | Automated checks on a clean copy. Disposable. |
+| `stg` | Configured like production; final verification. |
+| `prd` | Production. |
+
+Adding an environment means adding `envs/<name>.tfvars`, listing it in the bootstrap
+`environments` variable and in the workflow matrices. No stack code changes.
 
 ## Stacks
 
