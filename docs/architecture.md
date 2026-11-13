@@ -22,8 +22,9 @@ it describes. Decisions and their reasons are in [adr/](adr/).
  GitHub Actions -- OIDC --> AWS IAM -- terraform apply, image push
 ```
 
-Status: AWS foundation and the data generator are in place. Snowflake, dbt, Airflow and the image
-pipeline are not built yet.
+Status: AWS foundation, the data generator and the dbt project are in place. The dbt project is
+checked by parsing only; it has not run against a warehouse yet. Snowflake, Airflow and the image
+pipeline are not built.
 
 ## Environments
 
@@ -180,7 +181,7 @@ everything else from this parameter. The same DAG files run unchanged in every e
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `ci` | every pull request, push to `main` | linters, unit tests |
+| `ci` | every pull request, push to `main` | linters, unit tests, dbt project parse |
 | `infra-plan` | pull requests touching `infra/` | fmt, validate, tflint and plan for bootstrap and for every environment |
 | `infra-apply` | merge to `main` touching stacks, modules or env files | rollout `dev` -> `tst` -> `stg` -> `prd` |
 

@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: stg_landing__customers
+    description: Current state of each customer.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: email
+        data_tests: [not_null]
+      - name: country_code
+        data_tests: [not_null]
+
+  - name: stg_landing__products
+    description: Current state of each product.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: current_price
+        data_tests: [not_null]
+
+  - name: stg_landing__orders
+    description: One row per order with its latest known status.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_landing__customers')
+                field: customer_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [placed, shipped, delivered, cancelled, returned]
+
+  - name: stg_landing__order_items
+    description: One row per order line.
+    columns:
+      - name: order_item_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_landing__orders')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_landing__products')
+                field: product_id
+
+  - name: stg_landing__payments
+    description: One row per payment attempt.
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+      - name: payment_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [success, failed]
+
+unit_tests:
+  - name: latest_order_status_wins
+    description: Several deliveries of the same order collapse into the most recent one.
+    model: stg_landing__orders
+    given:
+      - input: source('landing', 'orders')
+        # yamllint disable rule:line-length
+        rows:
+          - {order_id: 1, customer_id: 10, status: placed, ordered_at: "2025-03-01 10:00:00", updated_at: "2025-03-01 10:00:00", _loaded_at: "2025-03-02 01:00:00"}
+          - {order_id: 1, customer_id: 10, status: shipped, ordered_at: "2025-03-01 10:00:00", updated_at: "2025-03-02 09:00:00", _loaded_at: "2025-03-03 01:00:00"}
+          - {order_id: 1, customer_id: 10, status: shipped, ordered_at: "2025-03-01 10:00:00", updated_at: "2025-03-02 09:00:00", _loaded_at: "2025-03-03 01:00:00"}
+          - {order_id: 2, customer_id: 11, status: placed, ordered_at: "2025-03-02 12:00:00", updated_at: "2025-03-02 12:00:00", _loaded_at: "2025-03-03 01:00:00"}
+    # yamllint enable rule:line-length
+    expect:
+      rows:
+        - {order_id: 1, order_status: shipped}
+        - {order_id: 2, order_status: placed}

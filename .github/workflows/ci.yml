@@ -52,3 +52,30 @@ jobs:
 
       - name: Run unit tests
         run: uv run pytest
+
+  dbt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: dbt
+    env:
+      DBT_PROFILES_DIR: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Install dbt packages
+        run: uv run dbt deps
+
+      # Checks project structure, refs, sources and YAML without a warehouse connection.
+      - name: Parse project
+        run: uv run dbt parse --warn-error

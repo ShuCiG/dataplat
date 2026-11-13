@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  - name: landing
+    description: Raw files copied from the S3 landing zone, one table per entity. Append only.
+    database: "{{ var('raw_database') }}"
+    schema: landing
+    loader: airflow copy into
+    config:
+      loaded_at_field: _loaded_at
+      freshness:
+        warn_after: {count: 30, period: hour}
+        error_after: {count: 54, period: hour}
+    tables:
+      - name: customers
+        description: New customers of the day and changed records of existing ones.
+        columns:
+          - name: customer_id
+            data_tests: [not_null]
+      - name: products
+        description: Full catalogue snapshot delivered every day.
+        columns:
+          - name: product_id
+            data_tests: [not_null]
+      - name: orders
+        description: Orders placed that day and status changes of earlier orders. Contains duplicates.
+        columns:
+          - name: order_id
+            data_tests: [not_null]
+      - name: order_items
+        description: Lines of the orders placed that day.
+        columns:
+          - name: order_item_id
+            data_tests: [not_null]
+      - name: payments
+        description: Payment attempts, including failed and split payments. Contains duplicates.
+        columns:
+          - name: payment_id
+            data_tests: [not_null]
