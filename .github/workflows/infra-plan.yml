@@ -28,6 +28,7 @@ jobs:
       matrix:
         stack:
           - infra/bootstrap/aws
+          - infra/live/dev/10-platform
     defaults:
       run:
         working-directory: ${{ matrix.stack }}
