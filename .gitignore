@@ -41,3 +41,7 @@ tools/datagen/out/
 Thumbs.db
 .idea/
 .vscode/
+
+# Terraform local overrides and backend settings
+*_override.tf
+backend.hcl

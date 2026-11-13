@@ -35,10 +35,14 @@ repos:
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.109.5
+  # Plain system hook: the common bash-based Terraform hooks do not run on Windows.
+  - repo: local
     hooks:
-      - id: terraform_fmt
+      - id: terraform-fmt
+        name: terraform fmt
+        entry: terraform fmt
+        language: system
+        files: \.tf$
 
   - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.15.1
