@@ -1,0 +1,28 @@
+[project]
+name = "dataplat"
+version = "0.1.0"
+description = "Cloud data platform: S3, Snowflake, dbt, Airflow, ECS Fargate, Terraform"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+    "pytest>=8.0",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["dbt/dbt_packages", "dbt/target"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PTH", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tools/datagen/tests", "airflow/tests"]
+addopts = "-ra --strict-markers"
