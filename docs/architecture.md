@@ -152,7 +152,9 @@ example) these rules apply:
 
 Non-secret configuration (names, ARNs, the image tag) stays in SSM Parameter Store.
 
-No secrets exist yet; the first ones arrive with the warehouse setup.
+No secrets exist yet. Terraform reaches Snowflake with workload identity as well (the dev
+developer AWS role from a workstation, GitHub OIDC from the pipeline), so the warehouse bootstrap
+adds none. See [infra/bootstrap/snowflake](../infra/bootstrap/snowflake/README.md).
 
 ## Runtime configuration
 
