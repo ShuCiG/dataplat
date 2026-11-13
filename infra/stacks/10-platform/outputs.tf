@@ -38,6 +38,11 @@ output "task_security_group_id" {
   value       = module.network.tasks_security_group_id
 }
 
+output "runtime_config_parameter" {
+  description = "SSM parameter with the runtime configuration for workflow code."
+  value       = aws_ssm_parameter.runtime_config.name
+}
+
 output "orchestrator_role_arn" {
   description = "Role the orchestrator assumes."
   value       = module.orchestrator.role_arn

@@ -23,6 +23,12 @@ variable "log_group_arn" {
   type        = string
 }
 
+variable "readable_parameter_arns" {
+  description = "SSM parameters the orchestrator may read."
+  type        = list(string)
+  default     = []
+}
+
 variable "lake_bucket_arn" {
   description = "Lake bucket. The orchestrator may list and read landing/."
   type        = string

@@ -78,6 +78,16 @@ data "aws_iam_policy_document" "this" {
     resources = [var.log_group_arn, "${var.log_group_arn}:*"]
   }
 
+  dynamic "statement" {
+    for_each = length(var.readable_parameter_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "ReadRuntimeConfig"
+      actions   = ["ssm:GetParameter"]
+      resources = var.readable_parameter_arns
+    }
+  }
+
   statement {
     sid       = "ListLanding"
     actions   = ["s3:ListBucket"]

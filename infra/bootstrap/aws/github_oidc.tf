@@ -139,6 +139,9 @@ data "aws_iam_policy_document" "terraform_apply" {
     resources = [
       "${local.iam_prefix}:role/${var.project}-gha-*",
       "${local.iam_prefix}:policy/${var.project}-gha-*",
+      "${local.iam_prefix}:role/${var.project}-*-developer",
+      "${local.iam_prefix}:role/${var.project}-*-viewer",
+      "${local.iam_prefix}:policy/${var.project}-*-viewer",
       aws_iam_openid_connect_provider.github.arn,
     ]
   }
