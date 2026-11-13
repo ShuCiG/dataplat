@@ -1,0 +1,87 @@
+name: infra-plan
+
+on:
+  pull_request:
+    paths:
+      - infra/**
+      - .github/workflows/infra-plan.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: plan (${{ matrix.stack }})
+    # Fork and Dependabot pull requests get no secrets, so there is no role to assume.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        stack:
+          - infra/bootstrap/aws
+    defaults:
+      run:
+        working-directory: ${{ matrix.stack }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_github_repository: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TERRAFORM_PLAN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Show caller identity
+        run: aws sts get-caller-identity --query Arn --output text
+
+      - name: Init
+        run: >-
+          terraform init
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="region=${{ vars.AWS_REGION }}"
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Lint
+        run: |
+          tflint --init
+          tflint --format compact
+
+      # The plan role is read-only and cannot write a lock file.
+      - name: Plan
+        run: terraform plan -lock=false -no-color | tee plan.txt
+
+      - name: Add plan to job summary
+        if: always()
+        run: |
+          {
+            echo '### `${{ matrix.stack }}`'
+            echo '```'
+            sed -E 's/[0-9]{12}/************/g' plan.txt | tail -n 60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
