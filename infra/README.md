@@ -6,8 +6,47 @@ Terraform for AWS and Snowflake.
 |---|---|
 | `bootstrap/aws` | State bucket, GitHub OIDC provider, CI roles. Applied once by hand. |
 | `bootstrap/snowflake` | One-off SQL run as `ACCOUNTADMIN` to create the Terraform role and user. |
-| `modules/` | Reusable modules, parameterised by environment. |
-| `live/<env>/10-platform` | Network, S3, ECR, ECS cluster, IAM, Snowflake objects and RBAC. |
-| `live/<env>/20-dbt-runtime` | ECS task definition for dbt. Applied on every dbt deploy. |
+| `modules/` | Reusable building blocks. |
+| `stacks/` | Root modules. Each stack is written once and applied to every environment. |
+| `envs/<env>.tfvars` | The only place where environments are allowed to differ. |
 
-State lives in S3 with native lockfile locking.
+## One stack, many environments
+
+There is no per-environment copy of the code. `dev` and `prod` are the same stack applied with a
+different variable file and a different state key:
+
+```
+stacks/10-platform  +  envs/dev.tfvars   ->  state key dev/10-platform/terraform.tfstate
+stacks/10-platform  +  envs/prod.tfvars  ->  state key prod/10-platform/terraform.tfstate
+```
+
+A change to a stack or a module therefore reaches every environment: CI applies it to `dev` first
+and to `prod` right after, from the same commit. Anything that should differ between environments
+has to be a variable and show up in `envs/`, which keeps the differences few and visible.
+
+## Stacks
+
+| Stack | Contents | Applied |
+|---|---|---|
+| `10-platform` | Network, lake bucket, ECR, ECS cluster, task roles, orchestrator role, runtime config | on merge, when `infra/` changes |
+
+## Running locally
+
+`backend.hcl` (git-ignored, created during bootstrap) holds the state bucket and region.
+
+```bash
+cd infra/stacks/10-platform
+ENV=dev
+terraform init -reconfigure \
+  -backend-config=../../backend.hcl \
+  -backend-config="key=$ENV/10-platform/terraform.tfstate"
+terraform plan -var-file=../../envs/$ENV.tfvars
+```
+
+Use `-reconfigure` whenever you switch environments: the backend key is part of the init.
+
+## Runtime configuration
+
+Each environment publishes one SSM parameter, `/<project>/<env>/platform/config`, with the names
+of everything workflow code needs: bucket, cluster, task family, subnets, log group. Pipelines
+read it at run time, so DAG code contains no environment names and no resource identifiers.

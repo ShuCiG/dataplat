@@ -12,9 +12,8 @@ terraform {
     }
   }
 
-  # Bucket and region are supplied at init time with -backend-config.
+  # Bucket, region and the per-environment key are supplied at init time, see infra/README.md.
   backend "s3" {
-    key          = "dev/10-platform/terraform.tfstate"
     encrypt      = true
     use_lockfile = true
   }

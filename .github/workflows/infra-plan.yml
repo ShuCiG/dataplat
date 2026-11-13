@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   plan:
-    name: plan (${{ matrix.stack }})
+    name: plan (${{ matrix.name }})
     # Fork and Dependabot pull requests get no secrets, so there is no role to assume.
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
@@ -26,16 +26,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack:
-          - infra/bootstrap/aws
-          - infra/live/dev/10-platform
+        include:
+          - name: bootstrap
+            directory: infra/bootstrap/aws
+            state_key: bootstrap/aws/terraform.tfstate
+            var_file: ""
+          - name: dev / 10-platform
+            directory: infra/stacks/10-platform
+            state_key: dev/10-platform/terraform.tfstate
+            var_file: ../../envs/dev.tfvars
+          - name: prod / 10-platform
+            directory: infra/stacks/10-platform
+            state_key: prod/10-platform/terraform.tfstate
+            var_file: ../../envs/prod.tfvars
     defaults:
       run:
-        working-directory: ${{ matrix.stack }}
+        working-directory: ${{ matrix.directory }}
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_github_oidc_subject_prefix: ${{ vars.GH_OIDC_SUBJECT_PREFIX }}
+      VAR_FILE: ${{ matrix.var_file }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,6 +59,7 @@ jobs:
       - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
 
       - name: Check formatting
+        working-directory: infra
         run: terraform fmt -check -recursive -diff
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -56,14 +68,12 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           mask-aws-account-id: true
 
-      - name: Show caller identity
-        run: aws sts get-caller-identity --query Arn --output text
-
       - name: Init
         run: >-
           terraform init
           -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
           -backend-config="region=${{ vars.AWS_REGION }}"
+          -backend-config="key=${{ matrix.state_key }}"
 
       - name: Validate
         run: terraform validate
@@ -75,14 +85,14 @@ jobs:
 
       # The plan role is read-only and cannot write a lock file.
       - name: Plan
-        run: terraform plan -lock=false -no-color | tee plan.txt
+        run: terraform plan -lock=false -no-color ${VAR_FILE:+-var-file="$VAR_FILE"} | tee plan.txt
 
       - name: Add plan to job summary
         if: always()
         run: |
           {
-            echo '### `${{ matrix.stack }}`'
+            echo '### ${{ matrix.name }}'
             echo '```'
-            sed -E 's/[0-9]{12}/************/g' plan.txt | tail -n 60
+            if [ -f plan.txt ]; then sed -E 's/[0-9]{12}/************/g' plan.txt | tail -n 60; else echo 'no plan produced'; fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

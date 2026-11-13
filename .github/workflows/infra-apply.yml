@@ -4,15 +4,16 @@ on:
   push:
     branches: [main]
     paths:
-      - infra/live/**
+      - infra/stacks/**
       - infra/modules/**
+      - infra/envs/**
       - .github/workflows/infra-apply.yml
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Never run two applies against the same environment at once, and never cancel one midway.
+# Never run two applies at once, and never cancel one midway.
 concurrency:
   group: infra-apply
   cancel-in-progress: false
@@ -26,6 +27,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # Same commit, same stack, one environment after the other. A failure in dev stops the
+    # rollout before it reaches prod.
     strategy:
       fail-fast: true
       max-parallel: 1
@@ -33,9 +36,11 @@ jobs:
         include:
           - environment: dev
             stack: 10-platform
+          - environment: prod
+            stack: 10-platform
     defaults:
       run:
-        working-directory: infra/live/${{ matrix.environment }}/${{ matrix.stack }}
+        working-directory: infra/stacks/${{ matrix.stack }}
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
@@ -59,9 +64,10 @@ jobs:
           terraform init
           -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
           -backend-config="region=${{ vars.AWS_REGION }}"
+          -backend-config="key=${{ matrix.environment }}/${{ matrix.stack }}/terraform.tfstate"
 
       - name: Plan
-        run: terraform plan -no-color -out=tfplan
+        run: terraform plan -no-color -var-file=../../envs/${{ matrix.environment }}.tfvars -out=tfplan
 
       - name: Apply
         run: terraform apply -no-color tfplan
