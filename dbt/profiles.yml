@@ -1,0 +1,39 @@
+# Targets are named after how the session authenticates, not after an environment.
+# The environment comes from DBT_ENV and only changes object names, so the same project
+# and the same image run unchanged in dev, tst, stg and prd.
+#
+#   local    a person on a laptop, browser single sign-on, personal schemas
+#   ci       pull request checks, GitHub OIDC workload identity, per-PR schemas
+#   runtime  the scheduled task on ECS, AWS workload identity, real schemas
+#
+# No target holds a password or a key.
+
+dataplat:
+  target: "{{ env_var('DBT_TARGET', 'local') }}"
+  outputs:
+    local: &base
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'not-set') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', 'not-set') }}"
+      authenticator: externalbrowser
+      role: "{{ env_var('DBT_ENV', 'dev') | upper }}_TRANSFORMER"
+      database: "{{ env_var('DBT_ENV', 'dev') | upper }}_ANALYTICS"
+      warehouse: "{{ env_var('DBT_ENV', 'dev') | upper }}_TRANSFORMING_WH"
+      schema: "{{ env_var('DBT_SCHEMA_PREFIX', 'dbt_' ~ env_var('SNOWFLAKE_USER', 'local')) }}"
+      threads: 4
+      client_session_keep_alive: false
+      query_tag: dbt
+
+    ci:
+      <<: *base
+      authenticator: workload_identity
+      workload_identity_provider: oidc
+      token: "{{ env_var('SNOWFLAKE_OIDC_TOKEN', 'not-set') }}"
+      schema: "{{ env_var('DBT_SCHEMA_PREFIX', 'ci') }}"
+
+    runtime:
+      <<: *base
+      authenticator: workload_identity
+      workload_identity_provider: aws
+      schema: public
+      threads: 8

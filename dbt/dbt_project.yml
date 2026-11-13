@@ -1,0 +1,35 @@
+name: dataplat
+version: "1.0.0"
+config-version: 2
+profile: dataplat
+
+require-dbt-version: [">=1.10.0", "<2.0.0"]
+
+model-paths: [models]
+macro-paths: [macros]
+test-paths: [tests]
+seed-paths: [seeds]
+snapshot-paths: [snapshots]
+
+clean-targets: [target, dbt_packages]
+
+vars:
+  # Database holding the raw landing tables. Derived from the environment, never hard-coded.
+  raw_database: "{{ env_var('DBT_ENV', 'dev') | upper }}_RAW"
+  # First day the source system has data for.
+  calendar_start: "2025-01-01"
+
+models:
+  dataplat:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: ephemeral
+    marts:
+      +schema: marts
+      +materialized: table

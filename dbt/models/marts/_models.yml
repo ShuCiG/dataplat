@@ -1,0 +1,116 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendar, one row per day from the first day of data to the end of next year.
+    columns:
+      - name: date_key
+        description: Day as an integer, YYYYMMDD.
+        data_tests: [unique, not_null]
+      - name: date_day
+        description: Calendar date.
+        data_tests: [unique, not_null]
+
+  - name: dim_customers
+    description: One row per customer with current attributes and order history summary.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: customer_key
+        description: Surrogate key.
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests: [unique, not_null]
+      - name: customer_id
+        description: Identifier in the source system.
+        data_type: number
+        data_tests: [unique, not_null]
+      - name: email
+        description: Current email address, lower case.
+        data_type: varchar
+      - name: first_name
+        description: First name.
+        data_type: varchar
+      - name: last_name
+        description: Last name.
+        data_type: varchar
+      - name: country_code
+        description: Current country, ISO 3166-1 alpha-2.
+        data_type: varchar
+      - name: signed_up_at
+        description: When the customer was created.
+        data_type: timestamp_tz
+      - name: first_ordered_at
+        description: Time of the first order, null if none.
+        data_type: timestamp_tz
+      - name: last_ordered_at
+        description: Time of the most recent order, null if none.
+        data_type: timestamp_tz
+      - name: lifetime_order_count
+        description: Number of orders ever placed, including cancelled ones.
+        data_type: number
+
+  - name: dim_products
+    description: One row per product with its current price.
+    columns:
+      - name: product_key
+        description: Surrogate key.
+        data_tests: [unique, not_null]
+      - name: product_id
+        description: Identifier in the source system.
+        data_tests: [unique, not_null]
+      - name: current_price
+        description: Price valid since price_valid_from.
+        data_tests: [not_null]
+
+  - name: fct_orders
+    description: One row per order with its latest status and amounts.
+    columns:
+      - name: order_id
+        description: Identifier in the source system.
+        data_tests: [unique, not_null]
+      - name: customer_key
+        description: Customer who placed the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_key
+      - name: order_date_key
+        description: Day the order was placed.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: order_amount
+        description: Sum of the order lines.
+        data_tests: [not_null]
+      - name: paid_amount
+        description: Sum of successful payments.
+        data_tests: [not_null]
+
+  - name: fct_order_items
+    description: One row per order line. Loaded incrementally.
+    columns:
+      - name: order_item_id
+        description: Identifier in the source system.
+        data_tests: [unique, not_null]
+      - name: product_key
+        description: Product sold.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_key
+      - name: customer_key
+        description: Customer who bought it.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_key
+      - name: line_amount
+        description: quantity * unit_price.
+        data_tests: [not_null]
