@@ -4,3 +4,6 @@ vpc_cidr    = "10.21.0.0/16"
 
 allow_data_loss    = true
 log_retention_days = 14
+
+# People may write to a sandbox directly; everywhere else they only read.
+sandbox = false
