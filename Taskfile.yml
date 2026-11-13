@@ -17,3 +17,18 @@ tasks:
     desc: Run all linters and formatters
     cmds:
       - uv run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - uv run pytest
+
+  datagen:
+    desc: "Generate landing data locally, e.g. task datagen -- --date 2025-03-15 --days 3"
+    cmds:
+      - uv run datagen generate {{.CLI_ARGS}}
+
+  datagen:upload:
+    desc: "Upload generated data, e.g. task datagen:upload -- --date 2025-03-15 --bucket <bucket>"
+    cmds:
+      - uv run datagen upload {{.CLI_ARGS}}

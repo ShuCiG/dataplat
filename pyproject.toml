@@ -7,6 +7,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "datagen",
     "pre-commit>=4.0",
     "pytest>=8.0",
     "ruff>=0.8",
@@ -15,14 +16,23 @@ dev = [
 [tool.uv]
 package = false
 
+[tool.uv.workspace]
+members = ["tools/datagen"]
+
+[tool.uv.sources]
+datagen = { workspace = true }
+
 [tool.ruff]
-line-length = 100
+line-length = 110
 target-version = "py312"
 extend-exclude = ["dbt/dbt_packages", "dbt/target"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PTH", "RUF"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["datagen"]
+
 [tool.pytest.ini_options]
-testpaths = ["tools/datagen/tests", "airflow/tests"]
+testpaths = ["tools/datagen/tests"]
 addopts = "-ra --strict-markers"
