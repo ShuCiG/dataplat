@@ -10,13 +10,17 @@ variable "region" {
   default     = "eu-central-1"
 }
 
-variable "github_repository" {
-  description = "GitHub repository allowed to assume the CI roles, as owner/name."
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    Prefix of the OIDC subject claim GitHub issues for the repository. Repositories with immutable
+    subjects include numeric ids, e.g. repo:owner@123/name@456. Read it with:
+    gh api repos/<owner>/<repo>/actions/oidc/customization/sub -q .sub_claim_prefix
+  EOT
   type        = string
 
   validation {
-    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
-    error_message = "Must be in the form owner/name."
+    condition     = can(regex("^repo:[^/:*]+/[^/:*]+$", var.github_oidc_subject_prefix))
+    error_message = "Must look like repo:owner/name or repo:owner@id/name@id, without wildcards."
   }
 }
 

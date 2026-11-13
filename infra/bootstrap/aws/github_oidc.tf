@@ -36,7 +36,7 @@ data "aws_iam_policy_document" "trust_pull_request" {
     condition {
       test     = "StringEquals"
       variable = "${local.github_issuer}:sub"
-      values   = ["repo:${var.github_repository}:pull_request"]
+      values   = ["${var.github_oidc_subject_prefix}:pull_request"]
     }
   }
 }
@@ -61,7 +61,7 @@ data "aws_iam_policy_document" "trust_environment" {
     condition {
       test     = "StringEquals"
       variable = "${local.github_issuer}:sub"
-      values   = ["repo:${var.github_repository}:environment:${each.key}"]
+      values   = ["${var.github_oidc_subject_prefix}:environment:${each.key}"]
     }
   }
 }

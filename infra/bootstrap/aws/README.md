@@ -20,7 +20,8 @@ The state bucket is created by this stack, so the first run keeps state locally 
 
 ```bash
 cd infra/bootstrap/aws
-echo 'github_repository = "<owner>/<repo>"' > terraform.tfvars
+prefix=$(gh api repos/<owner>/<repo>/actions/oidc/customization/sub -q .sub_claim_prefix)
+printf 'github_oidc_subject_prefix = "%s"\n' "$prefix" > terraform.tfvars
 
 # 1. local state
 printf 'terraform {\n  backend "local" {}\n}\n' > backend_override.tf
@@ -43,6 +44,7 @@ After the apply, store the outputs in the repository:
 | Kind | Name | Scope | Value |
 |---|---|---|---|
 | variable | `AWS_REGION` | repository | region |
+| variable | `GH_OIDC_SUBJECT_PREFIX` | repository | same value as `github_oidc_subject_prefix` |
 | variable | `TF_STATE_BUCKET` | repository | `state_bucket` |
 | secret | `AWS_ROLE_TERRAFORM_PLAN` | repository | `terraform_plan_role_arn` |
 | secret | `AWS_ROLE_TERRAFORM_APPLY` | environment | `terraform_apply_role_arns[<env>]` |
