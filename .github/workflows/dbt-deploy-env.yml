@@ -1,0 +1,95 @@
+name: dbt-deploy-env
+
+# One environment: publish the image, point the task definition at it, prove it runs. The
+# caller (dbt-deploy) only moves on to the next environment when this workflow succeeds.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to deploy (dev, tst, stg, prd).
+        required: true
+        type: string
+      tag:
+        description: Image tag, built by the caller.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy and verify (${{ inputs.environment }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      ENVIRONMENT: ${{ inputs.environment }}
+      TAG: ${{ inputs.tag }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_snowflake_account: ${{ secrets.SNOWFLAKE_ORGANIZATION_NAME }}-${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+      BACKEND: >-
+        -backend-config=bucket=${{ vars.TF_STATE_BUCKET }}
+        -backend-config=region=${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dbt-image
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_DBT_DEPLOY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Publish image
+        run: |
+          set -euo pipefail
+          account=$(aws sts get-caller-identity --query Account --output text)
+          registry="${account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          repository="dataplat-${ENVIRONMENT}-dbt"
+
+          # Tags are immutable: an existing tag is already the image of this commit.
+          if aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=$TAG" >/dev/null 2>&1; then
+            echo "$repository:$TAG already published"
+            exit 0
+          fi
+
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          docker load < dbt-image.tar.gz
+          docker tag "dataplat-dbt:$TAG" "$registry/$repository:$TAG"
+          docker push "$registry/$repository:$TAG"
+
+      # The pipeline owns this value; terraform only reads it.
+      - name: Record the tag
+        run: >-
+          aws ssm put-parameter --name "/dataplat/${ENVIRONMENT}/dbt/image_tag"
+          --type String --value "$TAG" --overwrite
+
+      - name: Task definition / init
+        working-directory: infra/stacks/30-dbt-runtime
+        run: terraform init $BACKEND -backend-config="key=$ENVIRONMENT/30-dbt-runtime/terraform.tfstate"
+
+      - name: Task definition / apply
+        working-directory: infra/stacks/30-dbt-runtime
+        run: terraform apply -no-color -auto-approve -var-file="../../envs/$ENVIRONMENT.tfvars"
+
+      # The gate: the new revision must start, sign in to Snowflake as its AWS role and see
+      # every object dbt needs.
+      - name: Verify / dbt debug on ECS
+        run: uv run --no-project --with boto3 python tools/verify/run_dbt_task.py "$ENVIRONMENT" debug

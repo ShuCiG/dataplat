@@ -1,0 +1,97 @@
+name: dbt-deploy
+
+# Builds the dbt image once and promotes that exact image dev -> tst -> stg -> prd. Each
+# environment gets its own copy in its own registry, a new task definition revision, and has to
+# pass `dbt debug` on ECS before the next environment starts. Approval at stg and prd is a
+# setting of the GitHub environment, not of this file.
+on:
+  push:
+    branches: [main]
+    paths:
+      - dbt/**
+      - pyproject.toml
+      - uv.lock
+      - infra/stacks/30-dbt-runtime/**
+      - tools/verify/run_dbt_task.py
+      - .github/workflows/dbt-deploy.yml
+      - .github/workflows/dbt-deploy-env.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbt-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Tags are immutable in the registry, so the tag is the commit: same commit, same image.
+      - id: tag
+        run: echo "tag=git-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: docker build -f dbt/Dockerfile -t dataplat-dbt:${{ steps.tag.outputs.tag }} .
+
+      - name: Save image
+        run: docker save dataplat-dbt:${{ steps.tag.outputs.tag }} | gzip > dbt-image.tar.gz
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dbt-image
+          path: dbt-image.tar.gz
+          retention-days: 3
+          compression-level: 0
+
+  dev:
+    needs: build
+    uses: ./.github/workflows/dbt-deploy-env.yml
+    with:
+      environment: dev
+      tag: ${{ needs.build.outputs.tag }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  tst:
+    needs: [build, dev]
+    uses: ./.github/workflows/dbt-deploy-env.yml
+    with:
+      environment: tst
+      tag: ${{ needs.build.outputs.tag }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  stg:
+    needs: [build, tst]
+    uses: ./.github/workflows/dbt-deploy-env.yml
+    with:
+      environment: stg
+      tag: ${{ needs.build.outputs.tag }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  prd:
+    needs: [build, stg]
+    uses: ./.github/workflows/dbt-deploy-env.yml
+    with:
+      environment: prd
+      tag: ${{ needs.build.outputs.tag }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
