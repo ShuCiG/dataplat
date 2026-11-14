@@ -23,8 +23,8 @@ it describes. Decisions and their reasons are in [adr/](adr/).
 ```
 
 Status: AWS foundation, the data generator and the dbt project are in place. The dbt project is
-checked by parsing only; it has not run against a warehouse yet. Snowflake, Airflow and the image
-pipeline are not built.
+checked by parsing only; it has not run against a warehouse yet. The Snowflake warehouse stack
+(`20-warehouse`) is defined and applied to dev; Airflow and the image pipeline are not built.
 
 ## Environments
 

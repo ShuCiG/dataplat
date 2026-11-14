@@ -41,10 +41,4 @@ provider "aws" {
 # (GitHub OIDC workload identity). No password or key is involved in either case.
 provider "snowflake" {
   role = "PLATFORM_ADMIN"
-
-  preview_features_enabled = [
-    "snowflake_storage_integration_aws_resource",
-    "snowflake_stage_external_s3_resource",
-    "snowflake_file_format_parquet_resource",
-  ]
 }
