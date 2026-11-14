@@ -47,7 +47,29 @@ def upload(target_dir: Path, bucket: str, environment: str, run_id: str, succeed
             print(f"entrypoint: uploaded s3://{bucket}/{key}", flush=True)
 
 
+def check_writable(path: Path) -> bool:
+    """dbt exits silently when it cannot create its target directory, so say why up front."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".probe"
+        probe.touch()
+        probe.unlink()
+    except OSError as exc:
+        parent = path.parent if path.parent.exists() else Path("/")
+        st = parent.stat()
+        print(
+            f"entrypoint: cannot write to {path}: {exc}; uid={os.getuid()}, "
+            f"{parent} is owned by {st.st_uid} with mode {oct(st.st_mode & 0o7777)}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return False
+    return True
+
+
 def main() -> int:
+    if not check_writable(Path(os.environ.get("DBT_TARGET_PATH", "target"))):
+        return 1
     code = run_dbt(sys.argv[1:])
 
     bucket = os.environ.get("ARTIFACT_BUCKET")
