@@ -48,9 +48,9 @@ resource "aws_ecs_task_definition" "dbt" {
     cpu_architecture        = "X86_64"
   }
 
-  # dbt writes its target directory and logs to /tmp, so the root filesystem can stay read-only.
+  # dbt writes its target directory and logs to /work, so the root filesystem can stay read-only.
   volume {
-    name = "tmp"
+    name = "work"
   }
 
   container_definitions = jsonencode([
@@ -72,7 +72,7 @@ resource "aws_ecs_task_definition" "dbt" {
       ]
 
       mountPoints = [
-        { sourceVolume = "tmp", containerPath = "/tmp", readOnly = false },
+        { sourceVolume = "work", containerPath = "/work", readOnly = false },
       ]
 
       logConfiguration = {

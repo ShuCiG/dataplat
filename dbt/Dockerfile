@@ -34,15 +34,17 @@ RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin dbt
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build --chown=root:root /src/dbt /app/dbt
 
-# The root filesystem is read-only at run time. Everything dbt writes goes to /tmp, which the
-# task definition mounts as a writable volume.
+# The root filesystem is read-only at run time. Everything dbt writes goes to /work, which the
+# task definition mounts as a writable volume. The directory exists in the image and belongs to
+# the dbt user, so the (initially empty) volume inherits that ownership.
+RUN mkdir /work && chown 10001:10001 /work
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    HOME=/tmp/home \
+    HOME=/work/home \
     DBT_PROFILES_DIR=/app/dbt \
-    DBT_TARGET_PATH=/tmp/dbt/target \
-    DBT_LOG_PATH=/tmp/dbt/logs \
+    DBT_TARGET_PATH=/work/dbt/target \
+    DBT_LOG_PATH=/work/dbt/logs \
     DBT_PACKAGES_INSTALL_PATH=/app/dbt/dbt_packages \
     DBT_SEND_ANONYMOUS_USAGE_STATS=false \
     DBT_TARGET=runtime
