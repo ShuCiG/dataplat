@@ -47,6 +47,21 @@ def upload(target_dir: Path, bucket: str, environment: str, run_id: str, succeed
             print(f"entrypoint: uploaded s3://{bucket}/{key}", flush=True)
 
 
+DBT_UID = 10001
+
+
+def drop_privileges(workdir: Path) -> None:
+    """Fargate mounts volumes owned by root whatever the image says, so the container starts as
+    root only long enough to hand the volume to the dbt user, then becomes that user for good."""
+    if os.getuid() != 0:
+        return
+    workdir.mkdir(parents=True, exist_ok=True)
+    os.chown(workdir, DBT_UID, DBT_UID)
+    os.setgroups([])
+    os.setgid(DBT_UID)
+    os.setuid(DBT_UID)
+
+
 def check_writable(path: Path) -> bool:
     """dbt exits silently when it cannot create its target directory, so say why up front."""
     try:
@@ -68,6 +83,7 @@ def check_writable(path: Path) -> bool:
 
 
 def main() -> int:
+    drop_privileges(Path(os.environ.get("WORKDIR", "/work")))
     if not check_writable(Path(os.environ.get("DBT_TARGET_PATH", "target"))):
         return 1
     code = run_dbt(sys.argv[1:])
