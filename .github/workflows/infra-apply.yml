@@ -36,18 +36,30 @@ jobs:
         include:
           - environment: dev
             stack: 10-platform
+          - environment: dev
+            stack: 20-warehouse
           - environment: tst
             stack: 10-platform
+          - environment: tst
+            stack: 20-warehouse
           - environment: stg
             stack: 10-platform
+          - environment: stg
+            stack: 20-warehouse
           - environment: prd
             stack: 10-platform
+          - environment: prd
+            stack: 20-warehouse
     defaults:
       run:
         working-directory: infra/stacks/${{ matrix.stack }}
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
+      SNOWFLAKE_ORGANIZATION_NAME: ${{ secrets.SNOWFLAKE_ORGANIZATION_NAME }}
+      SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+      SNOWFLAKE_AUTHENTICATOR: WORKLOAD_IDENTITY
+      SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER: OIDC
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,8 +82,36 @@ jobs:
           -backend-config="region=${{ vars.AWS_REGION }}"
           -backend-config="key=${{ matrix.environment }}/${{ matrix.stack }}/terraform.tfstate"
 
+      # Snowflake trusts the GitHub OIDC subject of exactly one environment per user, so the
+      # token is only valid for the environment this job was approved for. It is short-lived,
+      # hence fetched right before each Terraform command that talks to Snowflake.
+      - name: Snowflake token (plan)
+        if: startsWith(matrix.stack, '20-')
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
+          echo "::add-mask::$token"
+          echo "SNOWFLAKE_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "SNOWFLAKE_USER=TERRAFORM_GHA_${ENVIRONMENT^^}" >> "$GITHUB_ENV"
+
       - name: Plan
         run: terraform plan -no-color -var-file=../../envs/${{ matrix.environment }}.tfvars -out=tfplan
+
+      # Snowflake trusts the GitHub OIDC subject of exactly one environment per user, so the
+      # token is only valid for the environment this job was approved for. It is short-lived,
+      # hence fetched right before each Terraform command that talks to Snowflake.
+      - name: Snowflake token (apply)
+        if: startsWith(matrix.stack, '20-')
+        env:
+          ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
+          echo "::add-mask::$token"
+          echo "SNOWFLAKE_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "SNOWFLAKE_USER=TERRAFORM_GHA_${ENVIRONMENT^^}" >> "$GITHUB_ENV"
 
       - name: Apply
         run: terraform apply -no-color tfplan

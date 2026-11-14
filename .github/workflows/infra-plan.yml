@@ -104,3 +104,36 @@ jobs:
             if [ -f plan.txt ]; then sed -E 's/[0-9]{12}/************/g' plan.txt | tail -n 60; else echo 'no plan produced'; fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # No Snowflake user trusts the pull_request OIDC subject, because a pull request must not be
+  # able to act as an administrator. Stacks that talk to Snowflake are therefore checked
+  # statically here; their plan runs in infra-apply, behind the environment approval.
+  validate-snowflake:
+    name: validate (20-warehouse)
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/stacks/20-warehouse
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+
+      - name: Init without backend
+        run: terraform init -backend=false -input=false
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Lint
+        run: |
+          tflint --init
+          tflint --format compact

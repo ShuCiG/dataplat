@@ -41,6 +41,13 @@ Adding an environment means adding `envs/<name>.tfvars`, listing it in the boots
 | Stack | Contents | Applied |
 |---|---|---|
 | `10-platform` | Network, lake bucket, ECR, ECS cluster, task roles, orchestrator role, runtime config | on merge, when `infra/` changes |
+| `20-warehouse` | Snowflake warehouses, databases, roles and grants, service users (workload identity), S3 storage integration and landing stage | on merge, after `10-platform` of the same environment |
+
+`20-warehouse` reads the AWS roles created by `10-platform`, so the pipeline applies both stacks
+to one environment before it moves on to the next. It logs in to Snowflake with a GitHub OIDC
+token and needs the repository secrets `SNOWFLAKE_ORGANIZATION_NAME` and
+`SNOWFLAKE_ACCOUNT_NAME`. Pull requests only validate it (no Snowflake user trusts the pull
+request subject, on purpose); the plan runs in the apply workflow behind the environment approval.
 
 ## Running locally
 
@@ -56,6 +63,14 @@ terraform plan -var-file=../../envs/$ENV.tfvars
 ```
 
 Use `-reconfigure` whenever you switch environments: the backend key is part of the init.
+
+`20-warehouse` also needs a Snowflake login, taken from the environment:
+
+```bash
+export SNOWFLAKE_ORGANIZATION_NAME=... SNOWFLAKE_ACCOUNT_NAME=...
+export SNOWFLAKE_USER=TERRAFORM_DEV SNOWFLAKE_AUTHENTICATOR=WORKLOAD_IDENTITY
+export SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER=AWS   # with AWS_PROFILE=dataplat-dev
+```
 
 ## Runtime configuration
 
