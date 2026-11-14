@@ -35,8 +35,8 @@ COPY --from=build /opt/venv /opt/venv
 COPY --from=build --chown=root:root /src/dbt /app/dbt
 
 # The root filesystem is read-only at run time. Everything dbt writes goes to /work, which the
-# task definition mounts as a writable volume. The directory exists in the image and belongs to
-# the dbt user, so the (initially empty) volume inherits that ownership.
+# task definition mounts as a writable volume. Fargate hands that volume to root, so the
+# entrypoint chowns it before dropping privileges.
 RUN mkdir /work && chown 10001:10001 /work
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
@@ -50,7 +50,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     DBT_TARGET=runtime
 
 WORKDIR /app/dbt
-USER 10001
+# Starts as root so the entrypoint can take ownership of the work volume, then drops to 10001.
+# Nothing but the entrypoint's first lines ever runs as root.
 
 ENTRYPOINT ["python", "/app/dbt/entrypoint.py"]
 CMD ["debug"]
