@@ -7,10 +7,11 @@
 locals {
   name_prefix = "${var.project}-${var.environment}"
 
+  # SSM data sources are always sensitive. Both values are plain configuration, not secrets.
   # The platform stack publishes everything workflow code needs to know in one parameter.
-  platform = jsondecode(data.aws_ssm_parameter.platform_config.value)
+  platform = jsondecode(nonsensitive(data.aws_ssm_parameter.platform_config.value))
 
-  image_tag = var.image_tag_override != "" ? var.image_tag_override : data.aws_ssm_parameter.image_tag.value
+  image_tag = var.image_tag_override != "" ? var.image_tag_override : nonsensitive(data.aws_ssm_parameter.image_tag.value)
 }
 
 data "aws_ssm_parameter" "platform_config" {
