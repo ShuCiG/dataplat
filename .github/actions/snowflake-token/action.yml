@@ -1,0 +1,26 @@
+name: Snowflake token
+description: >-
+  Fetch a GitHub OIDC token for Snowflake and export the login for the Snowflake provider.
+  Snowflake trusts the subject of exactly one environment per user, so the token only works for
+  the environment the calling job was approved for. It is short-lived: call this right before
+  each command that talks to Snowflake.
+
+inputs:
+  environment:
+    description: Environment name (dev, tst, stg, prd).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
+        echo "::add-mask::$token"
+        {
+          echo "SNOWFLAKE_TOKEN=$token"
+          echo "SNOWFLAKE_USER=TERRAFORM_GHA_${ENVIRONMENT^^}"
+        } >> "$GITHUB_ENV"

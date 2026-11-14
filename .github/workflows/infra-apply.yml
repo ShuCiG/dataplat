@@ -1,5 +1,8 @@
 name: infra-apply
 
+# The same commit is promoted dev -> tst -> stg -> prd. An environment starts only after the
+# previous one has been applied and verified (see infra-deploy-env). Manual approval is a setting
+# of the GitHub environment itself (stg and prd), not of this file.
 on:
   push:
     branches: [main]
@@ -7,111 +10,56 @@ on:
       - infra/stacks/**
       - infra/modules/**
       - infra/envs/**
+      - tools/verify/**
       - .github/workflows/infra-apply.yml
+      - .github/workflows/infra-deploy-env.yml
+      - .github/actions/snowflake-token/**
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Never run two applies at once, and never cancel one midway.
+# Never run two rollouts at once, and never cancel one midway.
 concurrency:
   group: infra-apply
   cancel-in-progress: false
 
 jobs:
-  apply:
-    name: apply (${{ matrix.environment }} / ${{ matrix.stack }})
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    environment: ${{ matrix.environment }}
+  dev:
+    uses: ./.github/workflows/infra-deploy-env.yml
+    with:
+      environment: dev
+    secrets: inherit
     permissions:
       contents: read
       id-token: write
-    # Same commit, same stack, one environment after the other. A failure stops the rollout
-    # before it reaches the next environment.
-    strategy:
-      fail-fast: true
-      max-parallel: 1
-      matrix:
-        include:
-          - environment: dev
-            stack: 10-platform
-          - environment: dev
-            stack: 20-warehouse
-          - environment: tst
-            stack: 10-platform
-          - environment: tst
-            stack: 20-warehouse
-          - environment: stg
-            stack: 10-platform
-          - environment: stg
-            stack: 20-warehouse
-          - environment: prd
-            stack: 10-platform
-          - environment: prd
-            stack: 20-warehouse
-    defaults:
-      run:
-        working-directory: infra/stacks/${{ matrix.stack }}
-    env:
-      TF_IN_AUTOMATION: "true"
-      TF_INPUT: "false"
-      SNOWFLAKE_ORGANIZATION_NAME: ${{ secrets.SNOWFLAKE_ORGANIZATION_NAME }}
-      SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
-      SNOWFLAKE_AUTHENTICATOR: WORKLOAD_IDENTITY
-      SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER: OIDC
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
 
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_wrapper: false
+  tst:
+    needs: dev
+    uses: ./.github/workflows/infra-deploy-env.yml
+    with:
+      environment: tst
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
 
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TERRAFORM_APPLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          mask-aws-account-id: true
+  stg:
+    needs: tst
+    uses: ./.github/workflows/infra-deploy-env.yml
+    with:
+      environment: stg
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
 
-      - name: Init
-        run: >-
-          terraform init
-          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
-          -backend-config="region=${{ vars.AWS_REGION }}"
-          -backend-config="key=${{ matrix.environment }}/${{ matrix.stack }}/terraform.tfstate"
-
-      # Snowflake trusts the GitHub OIDC subject of exactly one environment per user, so the
-      # token is only valid for the environment this job was approved for. It is short-lived,
-      # hence fetched right before each Terraform command that talks to Snowflake.
-      - name: Snowflake token (plan)
-        if: startsWith(matrix.stack, '20-')
-        env:
-          ENVIRONMENT: ${{ matrix.environment }}
-        run: |
-          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
-          echo "::add-mask::$token"
-          echo "SNOWFLAKE_TOKEN=$token" >> "$GITHUB_ENV"
-          echo "SNOWFLAKE_USER=TERRAFORM_GHA_${ENVIRONMENT^^}" >> "$GITHUB_ENV"
-
-      - name: Plan
-        run: terraform plan -no-color -var-file=../../envs/${{ matrix.environment }}.tfvars -out=tfplan
-
-      # Snowflake trusts the GitHub OIDC subject of exactly one environment per user, so the
-      # token is only valid for the environment this job was approved for. It is short-lived,
-      # hence fetched right before each Terraform command that talks to Snowflake.
-      - name: Snowflake token (apply)
-        if: startsWith(matrix.stack, '20-')
-        env:
-          ENVIRONMENT: ${{ matrix.environment }}
-        run: |
-          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
-          echo "::add-mask::$token"
-          echo "SNOWFLAKE_TOKEN=$token" >> "$GITHUB_ENV"
-          echo "SNOWFLAKE_USER=TERRAFORM_GHA_${ENVIRONMENT^^}" >> "$GITHUB_ENV"
-
-      - name: Apply
-        run: terraform apply -no-color tfplan
+  prd:
+    needs: stg
+    uses: ./.github/workflows/infra-deploy-env.yml
+    with:
+      environment: prd
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write

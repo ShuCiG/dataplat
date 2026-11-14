@@ -36,5 +36,5 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "PTH", "RUF"]
 known-first-party = ["datagen"]
 
 [tool.pytest.ini_options]
-testpaths = ["tools/datagen/tests"]
+testpaths = ["tools/datagen/tests", "tools/verify/tests"]
 addopts = "-ra --strict-markers"

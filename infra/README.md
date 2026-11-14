@@ -20,9 +20,32 @@ stacks/10-platform  +  envs/dev.tfvars   ->  state key dev/10-platform/terraform
 stacks/10-platform  +  envs/prd.tfvars  ->  state key prd/10-platform/terraform.tfstate
 ```
 
-A change to a stack or a module therefore reaches every environment: CI rolls the same commit
-through `dev`, `tst`, `stg` and `prd` in that order and stops at the first failure. Anything that should differ between environments
-has to be a variable and show up in `envs/`, which keeps the differences few and visible.
+A change to a stack or a module therefore reaches every environment, but never all at once. Anything
+that should differ between environments has to be a variable and show up in `envs/`, which keeps the
+differences few and visible.
+
+## Promotion
+
+`infra-apply` promotes one commit through the environments in order:
+
+```
+dev  ->  tst  ->  stg  ->  prd
+```
+
+Each environment is one run of `infra-deploy-env`: apply every stack, then verify. The next
+environment starts only if the previous one succeeded, so a change that has not been proven in `dev`,
+`tst` and `stg` cannot reach `prd`.
+
+Verification after the apply:
+
+1. Every stack plans clean again (`terraform plan -detailed-exitcode`), so the apply converged.
+2. `tools/verify/verify_warehouse.py` checks the Snowflake access model: which roles each functional
+   role bundles, that the transformer cannot write RAW, that analysts cannot reach RAW or staging,
+   that nothing reaches into another environment, and that Snowflake can list the landing bucket.
+
+Manual approval is configured on the GitHub environment, not in the workflow: `stg` and `prd` list
+required reviewers, and the run waits there until they confirm. Checks that need a running
+pipeline (dbt tests, DAG runs) are added to `infra-deploy-env` as those parts are built.
 
 ## Environments
 
