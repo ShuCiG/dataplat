@@ -47,6 +47,21 @@ Manual approval is configured on the GitHub environment, not in the workflow: `s
 required reviewers, and the run waits there until they confirm. Checks that need a running
 pipeline (dbt tests, DAG runs) are added to `infra-deploy-env` as those parts are built.
 
+## dbt image deploy
+
+`stacks/30-dbt-runtime` holds only the dbt task definition. It is applied by `dbt-deploy`, not by
+`infra-apply`, because it changes with every image and the deploy role has no rights over the
+rest of the platform.
+
+`dbt-deploy` builds the image once (tag `git-<commit>`) and promotes that exact image through
+`dev -> tst -> stg -> prd`. Per environment: push to that environment's registry, write the tag to
+`/dataplat/<env>/dbt/image_tag`, apply the stack, then run `dbt debug` on ECS
+(`tools/verify/run_dbt_task.py`). The next environment starts only if that run is green. It proves
+the task starts, signs in to Snowflake with its AWS role and sees every object dbt needs.
+
+Rolling back is re-running the workflow on an older commit: tags are immutable, so the old image is
+still in the registry.
+
 ## Environments
 
 | Name | Purpose |

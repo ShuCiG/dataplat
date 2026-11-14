@@ -1,0 +1,11 @@
+*
+!pyproject.toml
+!uv.lock
+!dbt/
+!tools/datagen/pyproject.toml
+
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
+**/__pycache__/

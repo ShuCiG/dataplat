@@ -211,6 +211,13 @@ data "aws_iam_policy_document" "dbt_deploy" {
     resources = ["arn:${local.partition}:ssm:${var.region}:${local.account_id}:parameter/${var.project}/${each.key}/dbt/*"]
   }
 
+  # The task definition is built from the platform's published configuration.
+  statement {
+    sid       = "PlatformConfig"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:${local.partition}:ssm:${var.region}:${local.account_id}:parameter/${var.project}/${each.key}/platform/config"]
+  }
+
   statement {
     sid       = "SsmDescribe"
     actions   = ["ssm:DescribeParameters"]
@@ -229,6 +236,32 @@ data "aws_iam_policy_document" "dbt_deploy" {
       "ecs:TagResource",
     ]
     resources = ["*"]
+  }
+
+  # The deploy proves itself by running `dbt debug` in the task it just registered. It may start
+  # only that one family on that one cluster, and read what the task logged.
+  statement {
+    sid       = "RunDbtDebug"
+    actions   = ["ecs:RunTask"]
+    resources = ["arn:${local.partition}:ecs:${var.region}:${local.account_id}:task-definition/${var.project}-${each.key}-dbt:*"]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = ["arn:${local.partition}:ecs:${var.region}:${local.account_id}:cluster/${var.project}-${each.key}"]
+    }
+  }
+
+  statement {
+    sid       = "WatchAndStopDbtTask"
+    actions   = ["ecs:DescribeTasks", "ecs:StopTask", "ecs:TagResource"]
+    resources = ["arn:${local.partition}:ecs:${var.region}:${local.account_id}:task/${var.project}-${each.key}/*"]
+  }
+
+  statement {
+    sid       = "ReadDbtTaskLogs"
+    actions   = ["logs:GetLogEvents"]
+    resources = ["arn:${local.partition}:logs:${var.region}:${local.account_id}:log-group:/ecs/${var.project}-${each.key}/dbt:*"]
   }
 
   statement {
@@ -258,7 +291,7 @@ data "aws_iam_policy_document" "dbt_deploy" {
   statement {
     sid       = "RuntimeStackState"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${local.state_bucket}/${each.key}/20-dbt-runtime/*"]
+    resources = ["${local.state_bucket}/${each.key}/30-dbt-runtime/*"]
   }
 }
 

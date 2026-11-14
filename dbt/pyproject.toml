@@ -6,6 +6,9 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "dbt-core>=1.10,<2",
     "dbt-snowflake>=1.10,<2",
+    # Workload identity on AWS signs requests with the task role's credentials, and the
+    # entrypoint uploads run artifacts: both need boto3, which the connector does not pull in.
+    "boto3>=1.35",
 ]
 
 [tool.uv]

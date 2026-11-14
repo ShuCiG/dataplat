@@ -288,12 +288,14 @@ name = "dataplat-dbt"
 version = "0.1.0"
 source = { virtual = "dbt" }
 dependencies = [
+    { name = "boto3" },
     { name = "dbt-core" },
     { name = "dbt-snowflake" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.35" },
     { name = "dbt-core", specifier = ">=1.10,<2" },
     { name = "dbt-snowflake", specifier = ">=1.10,<2" },
 ]

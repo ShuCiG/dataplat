@@ -35,5 +35,6 @@ dataplat:
       <<: *base
       authenticator: workload_identity
       workload_identity_provider: aws
+      user: "{{ env_var('DBT_ENV') | upper }}_DBT_SVC"
       schema: public
       threads: 8
