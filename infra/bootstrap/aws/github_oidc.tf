@@ -317,3 +317,10 @@ resource "aws_iam_role_policy_attachment" "dbt_deploy" {
   role       = aws_iam_role.dbt_deploy[each.key].name
   policy_arn = aws_iam_policy.dbt_deploy[each.key].arn
 }
+
+# ECS needs this account-level role before the first task can run. AWS creates it lazily in the
+# console, but never through the API, so a fresh account has none and RunTask fails with
+# "Unable to assume the service linked role".
+resource "aws_iam_service_linked_role" "ecs" {
+  aws_service_name = "ecs.amazonaws.com"
+}
