@@ -1,6 +1,6 @@
 """Run the dbt task of one environment once, wait for it, print its log, return its exit code.
 
-    python tools/verify/run_dbt_task.py dev debug
+    python tools/verify/run_dbt_task.py dev debug --connection
     python tools/verify/run_dbt_task.py dev build --select tag:smoke
 
 The deploy pipeline uses it as a gate: a new task definition is only accepted when

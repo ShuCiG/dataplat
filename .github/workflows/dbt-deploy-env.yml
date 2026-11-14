@@ -92,4 +92,4 @@ jobs:
       # The gate: the new revision must start, sign in to Snowflake as its AWS role and see
       # every object dbt needs.
       - name: Verify / dbt debug on ECS
-        run: uv run --no-project --with boto3 python tools/verify/run_dbt_task.py "$ENVIRONMENT" debug
+        run: uv run --no-project --with boto3 python tools/verify/run_dbt_task.py "$ENVIRONMENT" debug --connection

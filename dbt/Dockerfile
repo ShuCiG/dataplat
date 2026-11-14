@@ -54,4 +54,4 @@ WORKDIR /app/dbt
 # Nothing but the entrypoint's first lines ever runs as root.
 
 ENTRYPOINT ["python", "/app/dbt/entrypoint.py"]
-CMD ["debug"]
+CMD ["debug", "--connection"]
