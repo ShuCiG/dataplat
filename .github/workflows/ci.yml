@@ -79,3 +79,22 @@ jobs:
       # Checks project structure, refs, sources and YAML without a warehouse connection.
       - name: Parse project
         run: uv run dbt parse --warn-error
+
+  airflow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the Airflow image
+        run: docker build --tag dataplat-airflow:ci airflow
+
+      # Runs in the image, so the tests see the same Airflow and provider versions as the stack.
+      - name: Run DAG tests
+        run: |
+          docker run --rm --entrypoint python \
+            --volume "$PWD/airflow/dags:/opt/airflow/dags:ro" \
+            --volume "$PWD/airflow/tests:/opt/airflow/tests:ro" \
+            dataplat-airflow:ci -m pytest /opt/airflow/tests -q -p no:cacheprovider

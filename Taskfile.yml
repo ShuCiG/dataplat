@@ -32,3 +32,22 @@ tasks:
     desc: "Upload generated data, e.g. task datagen:upload -- --date 2025-03-15 --bucket <bucket>"
     cmds:
       - uv run datagen upload {{.CLI_ARGS}}
+
+  airflow:up:
+    desc: Start local Airflow (needs airflow/.env, see airflow/.env.example), UI on localhost:8080
+    dir: airflow
+    cmds:
+      - docker compose up -d --build
+
+  airflow:down:
+    desc: Stop local Airflow (keeps its metadata database)
+    dir: airflow
+    cmds:
+      - docker compose down
+
+  airflow:test:
+    desc: Run the DAG tests inside the Airflow image
+    dir: airflow
+    cmds:
+      - docker compose build airflow-init
+      - docker compose run --rm --no-deps --entrypoint python airflow-init -m pytest /opt/airflow/tests -q
