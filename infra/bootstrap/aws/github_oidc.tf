@@ -123,6 +123,29 @@ data "aws_iam_policy_document" "terraform_apply" {
     resources = ["${local.iam_prefix}:role/${var.project}-${each.key}-*", "${local.iam_prefix}:policy/${var.project}-${each.key}-*"]
   }
 
+  # Roles created by an apply role must carry the environment's permissions boundary, and the
+  # boundary cannot be dropped later. Whatever such a role is granted, it can never do more than
+  # the boundary allows, so the apply role cannot hand out permissions it does not have.
+  statement {
+    sid       = "RolesMustCarryBoundary"
+    effect    = "Deny"
+    actions   = ["iam:CreateRole", "iam:PutRolePermissionsBoundary"]
+    resources = ["${local.iam_prefix}:role/${var.project}-${each.key}-*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [aws_iam_policy.boundary[each.key].arn]
+    }
+  }
+
+  statement {
+    sid       = "BoundaryCannotBeRemoved"
+    effect    = "Deny"
+    actions   = ["iam:DeleteRolePermissionsBoundary"]
+    resources = ["${local.iam_prefix}:role/${var.project}-${each.key}-*"]
+  }
+
   statement {
     sid       = "IamReadForPlan"
     actions   = ["iam:Get*", "iam:List*"]
@@ -323,4 +346,42 @@ resource "aws_iam_role_policy_attachment" "dbt_deploy" {
 # "Unable to assume the service linked role".
 resource "aws_iam_service_linked_role" "ecs" {
   aws_service_name = "ecs.amazonaws.com"
+}
+
+# --- permissions boundary for roles created by the apply roles -------------------------------
+# The named policy sits under the gha- prefix, so the apply roles cannot change it (see
+# ProtectBootstrap). It lists what the platform's runtime roles may ever do: read and write the
+# lake, read configuration, ship logs, pull the image, run and watch the dbt task.
+
+data "aws_iam_policy_document" "boundary" {
+  for_each = var.environments
+
+  statement {
+    sid = "RuntimeServices"
+    actions = [
+      "s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:ListBucket", "s3:GetBucketLocation",
+      "ssm:GetParameter", "ssm:GetParameters",
+      "logs:CreateLogStream", "logs:PutLogEvents", "logs:GetLogEvents", "logs:DescribeLogStreams",
+      "logs:FilterLogEvents",
+      "ecr:GetAuthorizationToken", "ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecs:RunTask", "ecs:DescribeTasks", "ecs:StopTask", "ecs:TagResource",
+      "ecs:DescribeTaskDefinition", "ecs:ListTaskDefinitions",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "PassTaskRoles"
+    actions   = ["iam:PassRole"]
+    resources = ["${local.iam_prefix}:role/${var.project}-${each.key}-*"]
+  }
+}
+
+resource "aws_iam_policy" "boundary" {
+  for_each = var.environments
+
+  name        = "${var.project}-gha-boundary-${each.key}"
+  description = "Permissions boundary for the runtime roles of the ${each.key} environment."
+  policy      = data.aws_iam_policy_document.boundary[each.key].json
 }

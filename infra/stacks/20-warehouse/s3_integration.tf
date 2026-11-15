@@ -45,9 +45,10 @@ data "aws_iam_policy_document" "snowflake_trust" {
 }
 
 resource "aws_iam_role" "snowflake_s3" {
-  name               = local.s3_role_name
-  description        = "Assumed by Snowflake to read the landing zone."
-  assume_role_policy = data.aws_iam_policy_document.snowflake_trust.json
+  name                 = local.s3_role_name
+  description          = "Assumed by Snowflake to read the landing zone."
+  assume_role_policy   = data.aws_iam_policy_document.snowflake_trust.json
+  permissions_boundary = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project}-gha-boundary-${var.environment}"
 }
 
 data "aws_iam_policy_document" "snowflake_s3" {

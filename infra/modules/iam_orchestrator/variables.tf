@@ -3,6 +3,11 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "permissions_boundary" {
+  description = "ARN of the permissions boundary attached to the role this module creates."
+  type        = string
+}
+
 variable "cluster_arn" {
   description = "ECS cluster the orchestrator may run tasks on."
   type        = string

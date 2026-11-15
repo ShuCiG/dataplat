@@ -1,6 +1,12 @@
+data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
 locals {
   name_prefix = "${var.project}-${var.environment}"
   dbt_family  = "${local.name_prefix}-dbt"
+
+  # Created by the bootstrap stack. Every role this stack creates must carry it.
+  permissions_boundary = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project}-gha-boundary-${var.environment}"
 }
 
 module "network" {
@@ -31,6 +37,7 @@ module "ecs_dbt" {
   image_tag_parameter_name = "/${var.project}/${var.environment}/dbt/image_tag"
   lake_bucket_arn          = module.lake.bucket_arn
   log_retention_days       = var.log_retention_days
+  permissions_boundary     = local.permissions_boundary
 }
 
 # Everything a workflow needs to know about this environment, in one place. Pipelines read
@@ -65,4 +72,6 @@ module "orchestrator" {
   lake_bucket_arn    = module.lake.bucket_arn
 
   readable_parameter_arns = [aws_ssm_parameter.runtime_config.arn]
+
+  permissions_boundary = local.permissions_boundary
 }
