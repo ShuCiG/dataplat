@@ -17,7 +17,7 @@ latest as (
 
 select
     customer_id,
-    lower(email) as email,
+    lower(email) as email, -- noqa: RF04
     first_name,
     last_name,
     upper(country) as country_code,

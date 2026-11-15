@@ -13,7 +13,7 @@ with items as (
 
     {% if is_incremental() %}
         -- Lines are immutable; only rows loaded since the last run need processing.
-        where loaded_at > (select coalesce(max(loaded_at), '1900-01-01') from {{ this }})
+        where loaded_at > (select coalesce(max(loaded_at), '1900-01-01') from {{ this }}) -- noqa: RF02
     {% endif %}
 
 ),
