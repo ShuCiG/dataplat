@@ -1,0 +1,4 @@
+apache-airflow-providers-amazon
+# Brings the Snowflake connector, which signs in with the AWS role (workload identity).
+apache-airflow-providers-snowflake
+pytest
