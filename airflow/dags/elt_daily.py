@@ -16,7 +16,7 @@ from airflow.providers.amazon.aws.sensors.s3 import S3KeySensor
 from airflow.sdk import DAG, task
 from common import config
 from common.callbacks import notify_failure
-from common.snowflake import connect, copy_into_sql
+from common.snowflake import connect, copy_into_sql, rows_loaded
 
 
 def cfg(key: str) -> str:
@@ -90,7 +90,7 @@ with DAG(
         try:
             cur = con.cursor()
             cur.execute(copy_into_sql(entity, ds))
-            return sum(row[3] for row in cur.fetchall() if row[1] == "LOADED")
+            return rows_loaded(cur.fetchall())
         finally:
             con.close()
 

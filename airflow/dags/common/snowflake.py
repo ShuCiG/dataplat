@@ -43,3 +43,12 @@ def copy_into_sql(entity: str, load_date: str) -> str:
         "_file_row_number = metadata$file_row_number, "
         "_loaded_at = metadata$start_scan_time)"
     )
+
+
+def rows_loaded(result: list[tuple]) -> int:
+    """Rows a COPY INTO loaded, from its result set.
+
+    One row per file: (file, status, rows_parsed, rows_loaded, ...). When every file was loaded
+    before, Snowflake returns a single one-column message row instead, which counts as 0.
+    """
+    return sum(row[3] for row in result if len(row) > 3 and row[1] == "LOADED")

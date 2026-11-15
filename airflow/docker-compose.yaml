@@ -16,6 +16,9 @@ x-airflow: &airflow
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
     AWS_SHARED_CREDENTIALS_FILE: /home/airflow/.aws/credentials
     AWS_CONFIG_FILE: /home/airflow/.aws/config
+    # The Snowflake connector reads the region from the environment, not from the profile.
+    AWS_REGION: ${AWS_REGION:-eu-central-1}
+    AWS_DEFAULT_REGION: ${AWS_REGION:-eu-central-1}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./tests:/opt/airflow/tests

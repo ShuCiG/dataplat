@@ -68,3 +68,16 @@ def test_copy_into_targets_the_partition_of_the_run():
     sql = copy_into_sql("orders", "2025-03-15")
     assert "@s3_landing/orders/load_date=2025-03-15/" in sql
     assert "match_by_column_name" in sql
+
+
+def test_rows_loaded_sums_loaded_files():
+    from common.snowflake import rows_loaded
+
+    result = [("a.parquet", "LOADED", 10, 10, 1, 0), ("b.parquet", "LOADED", 5, 5, 1, 0)]
+    assert rows_loaded(result) == 15
+
+
+def test_rows_loaded_is_zero_when_everything_was_loaded_before():
+    from common.snowflake import rows_loaded
+
+    assert rows_loaded([("Copy executed with 0 files processed.",)]) == 0
