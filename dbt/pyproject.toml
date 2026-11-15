@@ -13,3 +13,9 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+lint = [
+    "sqlfluff>=4.0,<5",
+    "sqlfluff-templater-dbt>=4.0,<5",
+]

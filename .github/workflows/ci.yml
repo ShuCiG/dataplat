@@ -71,7 +71,10 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --group lint
+
+      - name: Lint SQL
+        run: uv run sqlfluff lint models tests macros
 
       - name: Install dbt packages
         run: uv run dbt deps
@@ -98,3 +101,33 @@ jobs:
             --volume "$PWD/airflow/dags:/opt/airflow/dags:ro" \
             --volume "$PWD/airflow/tests:/opt/airflow/tests:ro" \
             dataplat-airflow:ci -m pytest /opt/airflow/tests -q -p no:cacheprovider
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+
+      - name: Lint Terraform
+        working-directory: infra
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$PWD/.tflint.hcl"
+          tflint --recursive --config "$PWD/.tflint.hcl" --format compact
+
+      # Misconfigurations in Terraform and Dockerfiles. Accepted findings are listed with a reason
+      # in .trivyignore.yaml.
+      - name: Scan configuration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: MEDIUM,HIGH,CRITICAL
+          trivyignores: .trivyignore.yaml
+          skip-dirs: "**/.terraform,dbt/dbt_packages"
+          exit-code: "1"

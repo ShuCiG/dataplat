@@ -8,3 +8,6 @@ ARG PYTHON_VERSION=3.12
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+
+# The base image already runs as the airflow user (uid 50000); stating it keeps it that way.
+USER 50000

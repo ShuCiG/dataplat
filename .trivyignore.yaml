@@ -1,0 +1,30 @@
+# Findings that are accepted on purpose. Each entry says why, so a reviewer can disagree.
+misconfigurations:
+  - id: DS-0002
+    paths: ["dbt/Dockerfile"]
+    statement: >-
+      The entrypoint starts as root only to take ownership of the mounted work volume, then drops
+      to an unprivileged user before dbt runs.
+  - id: AWS-0342
+    paths: ["infra/bootstrap/aws/github_oidc.tf"]
+    statement: >-
+      PassRole is limited to the task roles of one environment and to ecs-tasks.amazonaws.com.
+  - id: AWS-0345
+    paths: ["infra/bootstrap/aws/github_oidc.tf"]
+    statement: >-
+      The apply role of an environment manages that environment's buckets by wildcard action.
+      Resources are scoped by name prefix, and the role cannot touch the state bucket or the
+      bootstrap roles.
+  - id: AWS-0132
+    paths: ["infra/bootstrap/aws/state.tf", "infra/modules/s3_lake/main.tf"]
+    statement: >-
+      Buckets use AWS-managed encryption (SSE-S3). A customer managed KMS key adds a monthly cost
+      and no access boundary that the bucket policies do not already give.
+  - id: AWS-0104
+    paths: ["infra/modules/network/main.tf"]
+    statement: >-
+      Tasks run in public subnets and must reach ECR, S3, SSM and Snowflake (ADR 4). Inbound is
+      closed; only egress is open.
+  - id: AWS-0178
+    paths: ["infra/modules/network/main.tf"]
+    statement: VPC flow logs cost money and nothing in the platform consumes them yet.
