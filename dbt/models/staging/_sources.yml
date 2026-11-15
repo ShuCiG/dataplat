@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: landing
     description: Raw files copied from the S3 landing zone, one table per entity. Append only.
-    database: "{{ var('raw_database') }}"
+    database: "{{ env_var('DBT_ENV', 'dev') | upper }}_RAW"
     schema: landing
     loader: airflow copy into
     config:
