@@ -22,9 +22,9 @@ it describes. Decisions and their reasons are in [adr/](adr/).
  GitHub Actions -- OIDC --> AWS IAM -- terraform apply, image push
 ```
 
-Status: AWS foundation, the data generator and the dbt project are in place. The dbt project is
-checked by parsing only; it has not run against a warehouse yet. The Snowflake warehouse stack
-(`20-warehouse`) is defined and applied to dev; Airflow and the image pipeline are not built.
+Status: AWS foundation, the data generator, the Snowflake warehouse (`20-warehouse`), the dbt image
+pipeline and a local Airflow with the `elt_daily` DAG are in place. `elt_daily` has run end to end
+on dev: load, source freshness and `dbt build` on ECS, with a rerun of the same date loading 0 rows.
 
 ## Environments
 
