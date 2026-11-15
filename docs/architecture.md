@@ -130,9 +130,12 @@ aws s3 ls --profile dataplat-prd    # read only
 
 - The account administrator can still change any environment directly. The model constrains the
   day-to-day roles, not the break-glass identity.
-- Apply roles may create IAM roles named `dataplat-<env>-*` without a permissions boundary, so a
-  workflow running in an environment could grant such a role more than the apply role itself
-  has. Closing this needs a boundary policy enforced on role creation.
+- The apply role of an environment can create IAM roles named `dataplat-<env>-*`, but only with
+  the environment's permissions boundary (`dataplat-gha-boundary-<env>`, created by the bootstrap
+  stack), and it cannot remove the boundary or change the policy. A role it creates can therefore
+  never do more than the boundary lists: use the lake, read configuration, ship logs, pull the
+  image and run the dbt task. New kinds of runtime permission need a change to the boundary in
+  the bootstrap stack, applied by a human.
 - Required reviewers on the `prd` environment and branch protection on `main` need a public
   repository or a paid plan. They are not enabled yet.
 

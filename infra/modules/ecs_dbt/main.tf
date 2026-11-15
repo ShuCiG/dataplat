@@ -49,9 +49,10 @@ data "aws_partition" "current" {}
 
 # Execution role: used by the ECS agent to pull the image and ship logs.
 resource "aws_iam_role" "execution" {
-  name               = "${var.name_prefix}-dbt-task-execution"
-  description        = "Lets ECS pull the dbt image and write its logs."
-  assume_role_policy = data.aws_iam_policy_document.assume_ecs_tasks.json
+  name                 = "${var.name_prefix}-dbt-task-execution"
+  description          = "Lets ECS pull the dbt image and write its logs."
+  assume_role_policy   = data.aws_iam_policy_document.assume_ecs_tasks.json
+  permissions_boundary = var.permissions_boundary
 }
 
 resource "aws_iam_role_policy_attachment" "execution" {
@@ -62,9 +63,10 @@ resource "aws_iam_role_policy_attachment" "execution" {
 # Task role: the identity of the running container. Its ARN is also what the warehouse
 # trusts for workload identity authentication, so it must stay stable.
 resource "aws_iam_role" "task" {
-  name               = "${var.name_prefix}-dbt-task"
-  description        = "Identity of the running dbt container."
-  assume_role_policy = data.aws_iam_policy_document.assume_ecs_tasks.json
+  name                 = "${var.name_prefix}-dbt-task"
+  description          = "Identity of the running dbt container."
+  assume_role_policy   = data.aws_iam_policy_document.assume_ecs_tasks.json
+  permissions_boundary = var.permissions_boundary
 }
 
 data "aws_iam_policy_document" "task" {

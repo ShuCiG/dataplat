@@ -32,6 +32,7 @@ resource "aws_iam_role" "this" {
   description          = "Starts and monitors dbt tasks, checks landing files."
   assume_role_policy   = data.aws_iam_policy_document.trust.json
   max_session_duration = 43200
+  permissions_boundary = var.permissions_boundary
 }
 
 data "aws_iam_policy_document" "this" {

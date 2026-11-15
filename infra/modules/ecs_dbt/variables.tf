@@ -13,6 +13,11 @@ variable "lake_bucket_arn" {
   type        = string
 }
 
+variable "permissions_boundary" {
+  description = "ARN of the permissions boundary attached to the roles this module creates."
+  type        = string
+}
+
 variable "log_retention_days" {
   description = "Retention of the task log group."
   type        = number
