@@ -51,3 +51,8 @@ tasks:
     cmds:
       - docker compose build airflow-init
       - docker compose run --rm --no-deps --entrypoint python airflow-init -m pytest /opt/airflow/tests -q
+
+  destroy:
+    desc: "Dry run of tearing down one environment, e.g. task destroy -- dev. Add --execute to really delete."
+    cmds:
+      - uv run python tools/teardown/teardown.py {{.CLI_ARGS}}

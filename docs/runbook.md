@@ -110,15 +110,37 @@ It starts the task in that environment, waits, prints the log and returns the ex
 
 ## Tear everything down
 
-Order matters, because later stacks read from earlier ones:
+One environment is removed with `tools/teardown/teardown.py`. It destroys the three stacks in the
+order that works, because later stacks read from earlier ones: `30-dbt-runtime`, `20-warehouse`,
+then `10-platform`.
 
-1. `30-dbt-runtime` (the task definition).
-2. `20-warehouse` (Snowflake objects), then `10-platform` (AWS).
-3. `infra/bootstrap/aws`, last and by hand with admin credentials. It holds the state bucket, so
-   destroy it only after every other stack is gone.
-4. Remove the Snowflake bootstrap objects by hand: the `PLATFORM_ADMIN` role and the
-   `TERRAFORM_DEV` and `TERRAFORM_GHA_<ENV>` users created by
-   `infra/bootstrap/snowflake/bootstrap.sql`.
+Set the shell up as for a manual Terraform run (an `AWS_PROFILE` for the environment, and
+`SNOWFLAKE_USER`, `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER`,
+`SNOWFLAKE_ORGANIZATION_NAME`, `SNOWFLAKE_ACCOUNT_NAME`), then:
+
+```bash
+task destroy -- dev                 # dry run: terraform plan -destroy for each stack
+task destroy -- dev --execute       # deletes it, after you type the environment name
+task destroy -- prd --execute --allow-data-loss
+```
+
+- Without `--execute` nothing is changed.
+- Environments with `allow_data_loss = false` (`stg`, `prd`) refuse `--execute` unless you also pass
+  `--allow-data-loss`. The script then applies that flag first, because the bucket and the image
+  repository read it from the state when they are deleted.
+- Locally only `dev` has a Terraform user in Snowflake (`TERRAFORM_DEV`). For `tst`, `stg` and `prd`
+  the Snowflake user trusts only GitHub Actions, so their warehouse stack cannot be destroyed from a
+  workstation; run the script with credentials that can manage that environment's Snowflake objects.
+- If a stack fails, fix the cause and run the same command again: finished stacks have an empty state
+  and are skipped quickly.
+
+What the script leaves, to remove by hand once every environment you want gone is gone:
+
+1. `infra/bootstrap/aws`, last and with admin credentials. It holds the state bucket, so destroy it
+   only after every other stack is gone.
+2. The Snowflake bootstrap objects: the `PLATFORM_ADMIN` role and the `TERRAFORM_DEV` and
+   `TERRAFORM_GHA_<ENV>` users created by `infra/bootstrap/snowflake/bootstrap.sql`, and the account
+   resource monitor `DATAPLAT_ACCOUNT` if nothing else in the account needs it.
 
 Do not touch Snowflake objects that are not named `<ENV>_*` or `PLATFORM_*`: the account may hold
 other projects.
