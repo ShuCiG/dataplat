@@ -30,6 +30,7 @@ jobs:
       SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
       SNOWFLAKE_AUTHENTICATOR: WORKLOAD_IDENTITY
       SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER: OIDC
+      TF_VAR_github_oidc_subject_prefix: ${{ vars.GH_OIDC_SUBJECT_PREFIX }}
       ENVIRONMENT: ${{ inputs.environment }}
       BACKEND: >-
         -backend-config=bucket=${{ vars.TF_STATE_BUCKET }}

@@ -27,6 +27,8 @@ pipeline and a local Airflow with the `elt_daily` DAG are in place. `elt_daily` 
 on dev and prd: load, source freshness and `dbt build` on ECS, with a rerun of the same date loading
 0 rows. Airflow runs locally ([ADR 0007](adr/0007-airflow-runs-locally.md)); every service signs in
 to Snowflake with workload identity ([ADR 0008](adr/0008-workload-identity-for-snowflake.md)).
+Pull requests that change `dbt/` build the changed models in dev under `PR_<number>_*` schemas
+([ADR 0010](adr/0010-pull-request-checks-in-dev-only.md)).
 
 ## Environments
 
