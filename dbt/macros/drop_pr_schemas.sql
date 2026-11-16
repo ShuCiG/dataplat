@@ -19,7 +19,7 @@
         select schema_name
         from {{ target.database }}.information_schema.schemata
         where schema_name = '{{ prefix }}'
-           or starts_with(schema_name, '{{ prefix }}_')
+           or startswith(schema_name, '{{ prefix }}_')
     {% endset %}
 
     {% for row in run_query(found).rows %}
