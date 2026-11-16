@@ -107,3 +107,8 @@ jobs:
         run: >-
           uv run --no-project --with snowflake-connector-python==5.2.0
           python tools/verify/verify_warehouse.py "$ENVIRONMENT"
+
+      - name: Verify / roles allow what they should and refuse the rest
+        run: >-
+          uv run --no-project --with snowflake-connector-python==5.2.0
+          python tools/verify/verify_access.py "$ENVIRONMENT"
