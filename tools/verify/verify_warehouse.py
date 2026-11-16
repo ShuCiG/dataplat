@@ -7,8 +7,8 @@ Runs after every apply, before the change is promoted to the next environment. I
     SNOWFLAKE_TOKEN=... python verify_warehouse.py dev
 
 The Terraform user cannot assume the functional roles, so the checks are on the grants: what
-each functional role can reach through the access roles it bundles. A live login as the service
-users is exercised later, by dbt and the orchestrator.
+each functional role can reach through the access roles it bundles. Using the roles for real is
+`verify_access.py`.
 """
 
 from __future__ import annotations

@@ -42,6 +42,9 @@ Verification after the apply:
 2. `tools/verify/verify_warehouse.py` checks the Snowflake access model: which roles each functional
    role bundles, that the transformer cannot write RAW, that analysts cannot reach RAW or staging,
    that nothing reaches into another environment, and that Snowflake can list the landing bucket.
+3. `tools/verify/verify_access.py` proves it by use: it signs in as the loader, the transformer and the
+   analyst (through throw-away key-pair users that exist only for the run) and checks that what must
+   work works and what must be refused is refused with a real privilege error.
 
 Manual approval is configured on the GitHub environment, not in the workflow: `stg` and `prd` list
 required reviewers, and the run waits there until they confirm. Checks that need a running
