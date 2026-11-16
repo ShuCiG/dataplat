@@ -77,5 +77,5 @@ When loading an empty environment, start from 2025-01-01, or the relationship te
 
 ## Tear everything down
 
-Follow [Tear everything down](docs/runbook.md#tear-everything-down). The order matters and the last steps
-are manual, so there is deliberately no one-command destroy.
+`task destroy -- <env>` shows what would be deleted; add `--execute` to delete it. The bootstrap
+objects are removed by hand. Details: [Tear everything down](docs/runbook.md#tear-everything-down).
