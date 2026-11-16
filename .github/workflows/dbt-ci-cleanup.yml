@@ -43,6 +43,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --no-dev --package dataplat-dbt
 
+      - name: Install dbt packages
+        working-directory: dbt
+        run: uv run --no-sync dbt deps
+
       - name: Drop schemas
         working-directory: dbt
         run: |
