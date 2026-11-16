@@ -1,3 +1,4 @@
+{# Smoke test of the pull request checks: a comment only, no change in behaviour. #}
 with source as (
 
     select * from {{ source('landing', 'customers') }}
