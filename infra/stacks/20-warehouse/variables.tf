@@ -26,6 +26,12 @@ variable "sandbox" {
   default     = false
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "OIDC subject prefix of this repository, repo:<owner>/<repo>. Only used where pull request checks run (sandbox)."
+  type        = string
+  default     = ""
+}
+
 variable "warehouse_size" {
   description = "Size of the environment's warehouses."
   type        = string

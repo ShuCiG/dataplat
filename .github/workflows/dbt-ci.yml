@@ -1,0 +1,76 @@
+name: dbt-ci
+
+# Builds the models a pull request changes, and what depends on them, in dev under PR_<number>_*
+# schemas. Everything else is read from what dev already built (--defer). The schemas are removed
+# when the pull request closes (dbt-ci-cleanup).
+on:
+  pull_request:
+    paths:
+      - dbt/**
+      - uv.lock
+      - .github/workflows/dbt-ci.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbt-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: dbt build (changed models)
+    # Fork and Dependabot pull requests get no OIDC token and no secrets: nothing to sign in with.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DBT_TARGET: ci
+      DBT_ENV: dev
+      DBT_PROFILES_DIR: .
+      DBT_SCHEMA_PREFIX: PR_${{ github.event.pull_request.number }}
+      SNOWFLAKE_USER: DEV_DBT_CI_SVC
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ORGANIZATION_NAME }}-${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --no-dev --package dataplat-dbt
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TERRAFORM_PLAN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # The manifest of the last dbt run in dev is the baseline: it says which models changed
+      # and where the unchanged ones live.
+      - name: Fetch the baseline manifest from dev
+        run: |
+          bucket=$(aws ssm get-parameter --name /dataplat/dev/platform/config \
+            --query Parameter.Value --output text | jq -r .lake_bucket)
+          mkdir -p baseline
+          aws s3 cp "s3://$bucket/artifacts/dbt/dev/latest/manifest.json" baseline/manifest.json
+
+      - name: Install dbt packages
+        working-directory: dbt
+        run: uv run --no-sync dbt deps
+
+      # The token lives a few minutes, so it is fetched right before dbt connects.
+      - name: Build changed models and their dependents
+        working-directory: dbt
+        run: |
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
+          echo "::add-mask::$token"
+          export SNOWFLAKE_OIDC_TOKEN="$token"
+          uv run --no-sync dbt build --select state:modified+ --defer --state ../baseline

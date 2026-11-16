@@ -29,6 +29,7 @@ dataplat:
       authenticator: workload_identity
       workload_identity_provider: oidc
       token: "{{ env_var('SNOWFLAKE_OIDC_TOKEN', 'not-set') }}"
+      role: "{{ env_var('DBT_ENV', 'dev') | upper }}_CI"
       schema: "{{ env_var('DBT_SCHEMA_PREFIX', 'ci') }}"
 
     runtime:

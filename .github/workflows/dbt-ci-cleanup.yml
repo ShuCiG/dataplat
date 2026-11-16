@@ -1,0 +1,53 @@
+name: dbt-ci-cleanup
+
+# Drops the PR_<number>_* schemas that dbt-ci built for a pull request once it is closed or merged.
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - dbt/**
+      - uv.lock
+      - .github/workflows/dbt-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  drop:
+    name: drop PR schemas
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DBT_TARGET: ci
+      DBT_ENV: dev
+      DBT_PROFILES_DIR: .
+      DBT_SCHEMA_PREFIX: PR_${{ github.event.pull_request.number }}
+      SNOWFLAKE_USER: DEV_DBT_CI_SVC
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ORGANIZATION_NAME }}-${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      # The default branch is checked out: the merge ref of a merged pull request may be gone.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --no-dev --package dataplat-dbt
+
+      - name: Drop schemas
+        working-directory: dbt
+        run: |
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" | jq -r .value)
+          echo "::add-mask::$token"
+          export SNOWFLAKE_OIDC_TOKEN="$token"
+          uv run --no-sync dbt run-operation drop_pr_schemas --args "{pr_number: $PR_NUMBER}"
