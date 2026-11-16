@@ -48,7 +48,7 @@ Verification after the apply:
 
 Manual approval is configured on the GitHub environment, not in the workflow: `stg` and `prd` list
 required reviewers, and the run waits there until they confirm. Checks that need a running
-pipeline (dbt tests, DAG runs) are added to `infra-deploy-env` as those parts are built.
+pipeline run in `dbt-deploy` (`dbt debug` on ECS) and by hand (`elt_daily`, see the runbook).
 
 ## dbt image deploy
 
@@ -82,7 +82,8 @@ Adding an environment means adding `envs/<name>.tfvars`, listing it in the boots
 | Stack | Contents | Applied |
 |---|---|---|
 | `10-platform` | Network, lake bucket, ECR, ECS cluster, task roles, orchestrator role, runtime config | on merge, when `infra/` changes |
-| `20-warehouse` | Snowflake warehouses, databases, roles and grants, service users (workload identity), S3 storage integration and landing stage | on merge, after `10-platform` of the same environment |
+| `20-warehouse` | Snowflake warehouses, databases, roles and grants, service users (workload identity), S3 storage integration and landing stage, and in sandboxes the pull request user `DEV_DBT_CI_SVC` | on merge, after `10-platform` of the same environment |
+| `30-dbt-runtime` | The dbt ECS task definition | by `dbt-deploy` with every image, see below |
 
 `20-warehouse` reads the AWS roles created by `10-platform`, so the pipeline applies both stacks
 to one environment before it moves on to the next. It logs in to Snowflake with a GitHub OIDC
