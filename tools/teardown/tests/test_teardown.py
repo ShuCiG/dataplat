@@ -41,8 +41,11 @@ def test_nothing_missing_when_all_set():
     assert teardown.missing_settings(environ) == []
 
 
-def test_backend_key_is_per_environment_and_stack():
-    args = teardown.backend_args("dev", "20-warehouse")
+def test_backend_key_is_per_environment_and_stack(tmp_path):
+    backend = tmp_path / "backend.hcl"
+    backend.write_text('bucket = "b"\nregion = "r"\n', encoding="utf-8")
+    args = teardown.backend_args("dev", "20-warehouse", backend)
+    assert "-backend-config=bucket=b" in args
     assert "-backend-config=key=dev/20-warehouse/terraform.tfstate" in args
 
 

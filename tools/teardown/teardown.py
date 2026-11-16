@@ -55,8 +55,8 @@ def snowflake_account(environ: dict[str, str]) -> str:
     return f"{environ['SNOWFLAKE_ORGANIZATION_NAME']}-{environ['SNOWFLAKE_ACCOUNT_NAME']}"
 
 
-def backend_args(environment: str, stack: str) -> list[str]:
-    text = (INFRA / "backend.hcl").read_text(encoding="utf-8")
+def backend_args(environment: str, stack: str, backend_file: Path = INFRA / "backend.hcl") -> list[str]:
+    text = backend_file.read_text(encoding="utf-8")
     bucket = re.search(r'^bucket\s*=\s*"([^"]+)"', text, re.MULTILINE).group(1)
     region = re.search(r'^region\s*=\s*"([^"]+)"', text, re.MULTILINE).group(1)
     return [
