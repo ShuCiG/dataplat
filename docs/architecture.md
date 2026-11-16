@@ -82,10 +82,33 @@ Stack `10-platform`:
 | IAM role | `dataplat-<env>-dbt-task-execution` | Image pull and log delivery |
 | IAM role | `dataplat-<env>-airflow-orchestrator` | Start and watch the dbt task, read `landing/` |
 
+Stack `30-dbt-runtime` adds the ECS task definition `dataplat-<env>-dbt`. It is applied by
+`dbt-deploy`, not by `infra-apply`, because it changes with every image.
+
 VPC ranges: `dev` 10.20.0.0/16, `tst` 10.21.0.0/16, `stg` 10.22.0.0/16, `prd` 10.23.0.0/16.
 
 Account-wide, created once by `infra/bootstrap/aws`: the Terraform state bucket, the GitHub OIDC
 provider, and the roles in the next section.
+
+## Snowflake objects per environment
+
+Stack `20-warehouse`, names prefixed with the upper-case environment (`DEV_`, `PRD_`, ...).
+
+| Kind | Objects |
+|---|---|
+| Warehouses | `<ENV>_LOADING_WH`, `<ENV>_TRANSFORMING_WH`, `<ENV>_REPORTING_WH`: one per workload |
+| Databases | `<ENV>_RAW` (schema `LANDING`), `<ENV>_ANALYTICS` (schemas `STAGING`, `INTERMEDIATE`, `MARTS`) |
+| Access roles | `<ENV>_RAW_RW`, `<ENV>_RAW_RO`, `<ENV>_ANALYTICS_RW`, `<ENV>_MARTS_RO`: hold privileges only |
+| Functional roles | `<ENV>_LOADER` (RAW_RW), `<ENV>_TRANSFORMER` (RAW_RO, ANALYTICS_RW), `<ENV>_ANALYST` (MARTS_RO) |
+| Role for people | `<ENV>_DEVELOPER` (loader, transformer, analyst) in sandboxes, `<ENV>_VIEWER` (analyst) elsewhere |
+| Service users | `<ENV>_AIRFLOW_SVC` (LOADER), `<ENV>_DBT_SVC` (TRANSFORMER): workload identity bound to the AWS role, no password or key |
+| Pull request checks | `DEV_DBT_CI_SVC` and role `DEV_CI`, dev only, see [ADR 0010](adr/0010-pull-request-checks-in-dev-only.md) |
+| Landing | storage integration and external stage `S3_LANDING` on the environment's `landing/` prefix |
+
+Privileges go to access roles only, users get functional roles only, and the roles roll up to
+`SYSADMIN`. Outside the environment stacks the account holds the bootstrap objects (`PLATFORM_ADMIN`,
+the `TERRAFORM_*` users, resource monitor `DATAPLAT_ACCOUNT`) and objects of other projects, which
+these stacks never touch.
 
 ## Access model
 
@@ -140,8 +163,10 @@ aws s3 ls --profile dataplat-prd    # read only
   never do more than the boundary lists: use the lake, read configuration, ship logs, pull the
   image and run the dbt task. New kinds of runtime permission need a change to the boundary in
   the bootstrap stack, applied by a human.
-- Required reviewers on the `prd` environment and branch protection on `main` need a public
-  repository or a paid plan. They are not enabled yet.
+- Required reviewers on `stg` and `prd` and branch protection on `main` (pull request, `lint` and
+  `test` checks, applies to administrators) are enabled. They depend on the repository staying
+  public or on a paid plan. The person who starts a deployment can approve it, so the check is a
+  second look, not a second person.
 
 ## Secrets
 
@@ -190,9 +215,12 @@ everything else from this parameter. The same DAG files run unchanged in every e
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `ci` | every pull request, push to `main` | linters, unit tests, dbt project parse |
+| `ci` | every pull request, push to `main` | linters (pre-commit, sqlfluff, tflint, trivy), unit tests, DAG tests in the Airflow image, dbt project parse |
 | `infra-plan` | pull requests touching `infra/` | fmt, validate, tflint and plan for bootstrap and for every environment |
-| `infra-apply` | merge to `main` touching stacks, modules or env files | rollout `dev` -> `tst` -> `stg` -> `prd` |
+| `infra-apply` | merge to `main` touching stacks, modules or env files, or by hand | rollout `dev` -> `tst` -> `stg` -> `prd`, each environment verified before the next |
+| `dbt-ci` | pull requests touching `dbt/` | builds changed models and their dependents in dev under `PR_<number>_*` schemas |
+| `dbt-ci-cleanup` | pull request closed | drops those schemas |
+| `dbt-deploy` | merge to `main` touching `dbt/`, or by hand | builds the image once, promotes it `dev` -> `tst` -> `stg` -> `prd`, gated by `dbt debug` on ECS |
 
 Repository settings the workflows rely on are listed in
 [infra/bootstrap/aws/README.md](../infra/bootstrap/aws/README.md).

@@ -108,6 +108,40 @@ python tools/verify/run_dbt_task.py dev build --select stg_landing__orders
 
 It starts the task in that environment, waits, prints the log and returns the exit code.
 
+## Rebuild an environment after a teardown
+
+Proven on `dev` (destroy, then this). Use it for any environment you recreate.
+
+1. Run `infra-apply` from the Actions tab (`workflow_dispatch`). It applies `10-platform` and
+   `20-warehouse` and verifies the result. The run goes on to the next environments; cancel it
+   when it waits for approval at `stg` if you only rebuilt `dev`.
+2. Run `dbt-deploy` the same way. It builds the image, applies `30-dbt-runtime` and checks
+   `dbt debug` on ECS. The ECR repository was deleted with the environment, so this step is what
+   puts an image back.
+3. Load history from 2025-01-01 (the relationship tests need it). Take the lake bucket from
+   `/dataplat/<env>/platform/config`:
+
+   ```bash
+   task datagen -- --date 2025-01-01 --days 76
+   task datagen:upload -- --date 2025-01-01 --days 76 --bucket <lake bucket>
+   ```
+
+   Then load it as the orchestrator, not as `PLATFORM_ADMIN`, so the landing tables belong to
+   `<ENV>_LOADER`: `AWS_PROFILE=dataplat-<env>-orchestrator`, `SNOWFLAKE_USER=<ENV>_AIRFLOW_SVC`,
+   `SNOWFLAKE_ROLE=<ENV>_LOADER`, `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER=AWS`, then
+   `python tools/verify/load_landing.py <env> 2025-01-01 76`. Alternatively backfill the dates
+   with `elt_daily`.
+4. `python tools/verify/run_dbt_task.py <env> build`. Expect all tests green. In `dev` this also
+   writes the baseline manifest that pull request checks compare against.
+
+## Pull request schemas
+
+`dbt-ci` builds into `DEV_ANALYTICS` schemas named `PR_<number>_*` and `dbt-ci-cleanup` drops
+them when the pull request closes. If one was left behind (a pull request closed while the
+cleanup was failing), drop it from `dbt/` with the `ci` target and the
+`DEV_DBT_CI_SVC` login of the workflow, or by hand as `PLATFORM_ADMIN`:
+`dbt run-operation drop_pr_schemas --args '{pr_number: 42}' --target ci`.
+
 ## Tear everything down
 
 One environment is removed with `tools/teardown/teardown.py`. It destroys the three stacks in the
