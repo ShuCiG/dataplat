@@ -24,7 +24,9 @@ it describes. Decisions and their reasons are in [adr/](adr/).
 
 Status: AWS foundation, the data generator, the Snowflake warehouse (`20-warehouse`), the dbt image
 pipeline and a local Airflow with the `elt_daily` DAG are in place. `elt_daily` has run end to end
-on dev: load, source freshness and `dbt build` on ECS, with a rerun of the same date loading 0 rows.
+on dev and prd: load, source freshness and `dbt build` on ECS, with a rerun of the same date loading
+0 rows. Airflow runs locally ([ADR 0007](adr/0007-airflow-runs-locally.md)); every service signs in
+to Snowflake with workload identity ([ADR 0008](adr/0008-workload-identity-for-snowflake.md)).
 
 ## Environments
 
@@ -69,7 +71,7 @@ Stack `10-platform`:
 | VPC, 2 public subnets, internet gateway | `dataplat-<env>` | No NAT gateway. See [ADR 0004](adr/0004-public-subnets-for-tasks.md) |
 | Security group | `dataplat-<env>-tasks` | HTTPS out, nothing in |
 | S3 bucket | `dataplat-<env>-lake-<suffix>` | Versioned, encrypted, TLS only, no public access. `landing/` and `artifacts/` |
-| ECR repository | `dataplat-<env>-dbt` | Immutable tags, scan on push, last 20 images kept |
+| ECR repository | `dataplat-<env>-dbt` | Immutable tags, scan on push, last 20 images kept. See [ADR 0009](adr/0009-immutable-image-tags.md) |
 | ECS cluster | `dataplat-<env>` | Fargate only |
 | Log group | `/ecs/dataplat-<env>/dbt` | Retention from `envs/<env>.tfvars` |
 | SSM parameter | `/dataplat/<env>/dbt/image_tag` | Written by the image pipeline |
